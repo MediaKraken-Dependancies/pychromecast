@@ -3,7 +3,7 @@ Provides controllers to handle specific namespaces in Chromecast communication.
 """
 import logging
 
-from ..error import NotConnected, UnsupportedNamespace, ControllerNotRegistered
+from ..error import UnsupportedNamespace, ControllerNotRegistered
 
 
 class BaseController(object):
@@ -36,12 +36,12 @@ class BaseController(object):
         return (self._socket_client is not None and
                 self.namespace in self._socket_client.app_namespaces)
 
-    def launch(self):
+    def launch(self, callback_function=None):
         """ If set, launches app related to the controller. """
         self._check_registered()
 
         self._socket_client.receiver_controller.launch_app(
-            self.supporting_app_id)
+            self.supporting_app_id, callback_function=callback_function)
 
     def registered(self, socket_client):
         """ Called when a controller is registered. """
@@ -57,8 +57,12 @@ class BaseController(object):
             namespace of this controller. """
         pass
 
+    def channel_disconnected(self):
+        """ Called when a channel is disconnected. """
+        pass
+
     def send_message(self, data, inc_session_id=False,
-                     wait_for_response=False):
+                     callback_function=None):
         """
         Send a message on this namespace to the Chromecast.
 
@@ -76,8 +80,8 @@ class BaseController(object):
                     ("Namespace {} is not supported by running"
                      "application.").format(self.namespace))
 
-        self._message_func(
-            self.namespace, data, inc_session_id, wait_for_response)
+        return self._message_func(
+            self.namespace, data, inc_session_id, callback_function)
 
     # pylint: disable=unused-argument,no-self-use
     def receive_message(self, message, data):
@@ -90,6 +94,7 @@ class BaseController(object):
     def tear_down(self):
         """ Called when we are shutting down. """
         self._socket_client = None
+        self._message_func = None
 
     def _check_registered(self):
         """ Helper method to see if we are registered with a Cast object. """
